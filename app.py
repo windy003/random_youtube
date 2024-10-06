@@ -1,69 +1,56 @@
-from flask import Flask, request, jsonify
-from googleapiclient.discovery import build
-from flask_cors import CORS
+from flask import Flask, render_template, request, jsonify
+import requests
+import random
 
 app = Flask(__name__)
-CORS(app)  # 允许跨域请求
 
-# 使用你自己的 YouTube API key
-YOUTUBE_API_KEY = 'YOUR_API_KEY'
+# YouTube API key
+API_KEY = 'AIzaSyDuzxutoocl94tIzUNBxPQxxwg5foqDMaw'
 
-def get_videos_from_channel(channel_name):
-    youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+# 通过频道名称搜索频道ID
+def get_channel_id(channel_name):
+    url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={channel_name}&type=channel&key={API_KEY}'
+    response = requests.get(url).json()
 
-    # 获取频道的 ID
-    channel_response = youtube.search().list(
-        q=channel_name,
-        type='channel',
-        part='id,snippet',
-        maxResults=1
-    ).execute()
+    if 'items' in response and len(response['items']) > 0:
+        return response['items'][0]['snippet']['channelId']  # 获取频道ID
+    return None
 
-    if not channel_response['items']:
-        return {'error': 'No channel found with that name.'}
+# 获取随机视频列表的函数
+def get_random_videos(channel_id):
+    url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={channel_id}&maxResults=50&order=date&type=video&key={API_KEY}'
+    response = requests.get(url).json()
+    if 'items' not in response:
+        return []
+    
+    videos = response['items']
+    random_videos = random.sample(videos, min(10, len(videos)))  # 随机选择10个视频
+    video_ids = ','.join([video['id']['videoId'] for video in random_videos])
 
-    channel_id = channel_response['items'][0]['id']['channelId']
+    # 获取视频的详细信息
+    video_details_url = f'https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id={video_ids}&key={API_KEY}'
+    details_response = requests.get(video_details_url).json()
 
-    # 根据频道 ID 获取视频
-    video_response = youtube.search().list(
-        channelId=channel_id,
-        part='id,snippet',
-        order='date',
-        maxResults=10  # 返回前 10 个视频
-    ).execute()
+    return details_response['items']
 
-    videos = []
-    for item in video_response['items']:
-        if item['id']['kind'] == 'youtube#video':  # 过滤掉非视频的条目
-            video_id = item['id']['videoId']
-            video_details = youtube.videos().list(
-                id=video_id,
-                part='contentDetails'
-            ).execute()
+# 首页路由，渲染输入页面
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-            # 获取视频的详情
-            if video_details['items']:
-                video = {
-                    'id': video_id,
-                    'snippet': item['snippet'],
-                    'contentDetails': video_details['items'][0]['contentDetails']
-                }
-                videos.append(video)
-
-    return videos
-
+# 处理视频请求的API路由
 @app.route('/get_videos', methods=['POST'])
 def get_videos():
     channel_name = request.form.get('channel_name')
 
-    if not channel_name:
-        return jsonify({'error': 'Channel name is required.'})
+    # 获取频道ID
+    channel_id = get_channel_id(channel_name)
+    if not channel_id:
+        return jsonify({'error': 'Channel not found'})
 
-    try:
-        videos = get_videos_from_channel(channel_name)
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
+    # 获取随机视频
+    videos = get_random_videos(channel_id)
+    
     return jsonify(videos)
 
 if __name__ == '__main__':

@@ -1,41 +1,91 @@
-import isodate
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Random Videos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .video-container {
+            margin-top: 20px;
+        }
+        .video {
+            margin-bottom: 20px;
+        }
+        img {
+            max-width: 200px;
+        }
+        hr {
+            border: 1px solid #ccc;
+            margin: 20px 0;
+        }
+        .video-number {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
 
-# 获取随机视频列表的函数
-def get_random_videos(channel_id):
-    try:
-        url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&channelId={channel_id}&maxResults=50&order=date&type=video&key={API_KEY}'
-        response = requests.get(url).json()
+    <h1>Random YouTube Videos</h1>
+    <form id="videoForm">
+        <input type="text" id="channelName" placeholder="Enter channel name" required>
+        <button type="submit">Get Random Videos</button>
+    </form>
 
-        if 'items' not in response:
-            return []
-        
-        videos = response['items']
-        random_videos = random.sample(videos, min(10, len(videos)))  # 随机选择10个视频
-        video_ids = ','.join([video['id']['videoId'] for video in random_videos])
+    <div id="videoContainer" class="video-container"></div>
 
-        # 获取视频的详细信息
-        video_details_url = f'https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id={video_ids}&key={API_KEY}'
-        details_response = requests.get(video_details_url).json()
+    <script>
+        document.getElementById('videoForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
 
-        # 处理视频信息，并将持续时间转换为标准时间格式
-        video_data = []
-        for video in details_response['items']:
-            duration_iso = video['contentDetails']['duration']  # ISO 8601格式的持续时间
-            parsed_duration = isodate.parse_duration(duration_iso)
+            const channelName = document.getElementById('channelName').value;
+            const response = await fetch('/get_videos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `channel_name=${channelName}`
+            });
 
-            # 转换为 HH:MM:SS 格式
-            hours, remainder = divmod(parsed_duration.total_seconds(), 3600)
-            minutes, seconds = divmod(remainder, 60)
-            formatted_duration = f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
+            const videos = await response.json();
 
-            video_data.append({
-                'title': video['snippet']['title'],
-                'description': video['snippet']['description'],
-                'duration': formatted_duration,
-                'videoId': video['id']
-            })
+            const container = document.getElementById('videoContainer');
+            container.innerHTML = '';  // 清空之前的内容
 
-        return video_data
-    except requests.RequestException as e:
-        print(f"Error fetching videos: {e}")
-        return []
+            if (videos.error) {
+                container.innerHTML = `<p>${videos.error}</p>`;
+                return;
+            }
+
+            // 遍历视频列表，并为每个视频添加编号和分割线
+            videos.forEach((video, index) => {
+                const videoElement = document.createElement('div');
+                videoElement.classList.add('video');
+                
+                // 视频编号
+                const videoNumber = index + 1;
+
+                videoElement.innerHTML = `
+                    <p class="video-number">Video ${videoNumber}</p>
+                    <h2>${video.snippet.title}</h2>
+                    <p>${video.snippet.description}</p>
+                    <img src="${video.snippet.thumbnails.default.url}" alt="${video.snippet.title}">
+                    <p>Duration: ${video.contentDetails.duration}</p>
+                    <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank">Watch on YouTube</a>
+                    <hr>
+                `;
+
+                container.appendChild(videoElement);
+            });
+        });
+    </script>
+
+</body>
+</html>
