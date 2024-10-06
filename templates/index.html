@@ -63,7 +63,28 @@
                 container.innerHTML = `<p>${videos.error}</p>`;
                 return;
             }
+			
+	
+	
+			function convertDuration(duration) {
+				const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
 
+				const hours = (parseInt(match[1]) || 0);
+				const minutes = (parseInt(match[2]) || 0);
+				const seconds = (parseInt(match[3]) || 0);
+
+				let result = '';
+				if (hours > 0) {
+					result += `${hours}:`;
+				}
+				result += `${minutes}:${seconds.toString().padStart(2, '0')}`;
+				
+				return result;
+			}
+			
+			
+			
+			
             // 遍历视频列表，并为每个视频添加编号和分割线
             videos.forEach((video, index) => {
                 const videoElement = document.createElement('div');
@@ -71,13 +92,18 @@
                 
                 // 视频编号
                 const videoNumber = index + 1;
-
+				
+				
+				
+				// Convert video duration to standard format
+				const formattedDuration = convertDuration(video.contentDetails.duration);
+				
                 videoElement.innerHTML = `
                     <p class="video-number">Video ${videoNumber}</p>
                     <h2>${video.snippet.title}</h2>
                     <p>${video.snippet.description}</p>
                     <img src="${video.snippet.thumbnails.default.url}" alt="${video.snippet.title}">
-                    <p>Duration: ${video.contentDetails.duration}</p>
+					<p>Duration: ${formattedDuration}</p>
                     <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank">Watch on YouTube</a>
                     <hr>
                 `;
