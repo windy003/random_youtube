@@ -34,83 +34,80 @@
 <body>
 
     <h1>Random YouTube Videos</h1>
+
     <form id="videoForm">
-        <input type="text" id="channelName" placeholder="Enter channel name" required>
-        <button type="submit">Get Random Videos</button>
-    </form>
+    <input type="text" id="channelName" placeholder="输入频道名称" required>
+    <label for="minDuration">最短时长（分钟）：</label>
+    <input type="number" id="minDuration" min="0" max="60" value="5" required>
+    <label for="maxDuration">最长时长（分钟）：</label>
+    <input type="number" id="maxDuration" min="5" max="60" value="30" required>
+    <button type="submit">获取随机视频</button>
+	</form>
 
     <div id="videoContainer" class="video-container"></div>
 
     <script>
         document.getElementById('videoForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
+    event.preventDefault();
 
-            const channelName = document.getElementById('channelName').value;
-            const response = await fetch('/get_videos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `channel_name=${channelName}`
-            });
+    const channelName = document.getElementById('channelName').value;
+    const minDuration = document.getElementById('minDuration').value;
+    const maxDuration = document.getElementById('maxDuration').value;
 
-            const videos = await response.json();
+    const response = await fetch('/get_videos', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `channel_name=${channelName}&min_duration=${minDuration}&max_duration=${maxDuration}`
+    });
 
-            const container = document.getElementById('videoContainer');
-            container.innerHTML = '';  // 清空之前的内容
+    const videos = await response.json();
 
-            if (videos.error) {
-                container.innerHTML = `<p>${videos.error}</p>`;
-                return;
-            }
-			
-	
-	
-			function convertDuration(duration) {
-				const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    const container = document.getElementById('videoContainer');
+    container.innerHTML = '';  // 清空之前的内容
 
-				const hours = (parseInt(match[1]) || 0);
-				const minutes = (parseInt(match[2]) || 0);
-				const seconds = (parseInt(match[3]) || 0);
+    if (videos.error) {
+        container.innerHTML = `<p>${videos.error}</p>`;
+        return;
+    }
 
-				let result = '';
-				if (hours > 0) {
-					result += `${hours}:`;
-				}
-				result += `${minutes}:${seconds.toString().padStart(2, '0')}`;
-				
-				return result;
-			}
-			
-			
-			
-			
-            // 遍历视频列表，并为每个视频添加编号和分割线
-            videos.forEach((video, index) => {
-                const videoElement = document.createElement('div');
-                videoElement.classList.add('video');
-                
-                // 视频编号
-                const videoNumber = index + 1;
-				
-				
-				
-				// Convert video duration to standard format
-				const formattedDuration = convertDuration(video.contentDetails.duration);
-				
-                videoElement.innerHTML = `
-                    <p class="video-number">Video ${videoNumber}</p>
-                    <h2>${video.snippet.title}</h2>
-                    <p>${video.snippet.description}</p>
-                    <img src="${video.snippet.thumbnails.default.url}" alt="${video.snippet.title}">
-					<p>Duration: ${formattedDuration}</p>
-                    <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank">Watch on YouTube</a>
-                    <hr>
-                `;
+    function convertDuration(duration) {
+        const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+        const hours = parseInt(match[1]) || 0;
+        const minutes = parseInt(match[2]) || 0;
+        const seconds = parseInt(match[3]) || 0;
 
-                container.appendChild(videoElement);
-            });
-        });
+        let result = '';
+        if (hours > 0) {
+            result += `${hours}:`;
+        }
+        result += `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+        return result;
+    }
+
+    videos.forEach((video, index) => {
+        const videoElement = document.createElement('div');
+        videoElement.classList.add('video');
+
+        const videoNumber = index + 1;
+        const formattedDuration = convertDuration(video.contentDetails.duration);
+
+        videoElement.innerHTML = `
+            <p class="video-number">视频 ${videoNumber}</p>
+            <h2>${video.snippet.title}</h2>
+            <p>${video.snippet.description}</p>
+			<img src="${video.snippet.thumbnails.maxres ? video.snippet.thumbnails.maxres.url : (video.snippet.thumbnails.high ? video.snippet.thumbnails.high.url : video.snippet.thumbnails.default.url)}" alt="${video.snippet.title}">
+            <p>时长: ${formattedDuration}</p>
+            <a href="https://www.youtube.com/watch?v=${video.id}" target="_blank">在 YouTube 上观看</a>
+            <hr>
+        `;
+
+        container.appendChild(videoElement);
+    });
+});
+
     </script>
 
 </body>
